@@ -1,1 +1,109 @@
+const Database = require('better-sqlite3');
+const path = require('path');
+
+const db = new Database(path.join(__dirname, 'game.db'));
+
+// ── Initialize Tables ──────────────────────────────────────────────
+function initDB() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS players (
+      id          TEXT PRIMARY KEY,
+      username    TEXT UNIQUE NOT NULL,
+      password    TEXT NOT NULL,
+      class       TEXT DEFAULT 'speedster',
+      level       INTEGER DEFAULT 1,
+      exp         INTEGER DEFAULT 0,
+      exp_next    INTEGER DEFAULT 100,
+      hp          INTEGER DEFAULT 100,
+      max_hp      INTEGER DEFAULT 100,
+      sp          INTEGER DEFAULT 50,
+      max_sp      INTEGER DEFAULT 50,
+      str         INTEGER DEFAULT 5,
+      agi         INTEGER DEFAULT 5,
+      vit         INTEGER DEFAULT 5,
+      int_stat    INTEGER DEFAULT 5,
+      dex         INTEGER DEFAULT 5,
+      luk         INTEGER DEFAULT 5,
+      stat_points INTEGER DEFAULT 0,
+      zeny        INTEGER DEFAULT 500,
+      pos_x       REAL DEFAULT 400,
+      pos_y       REAL DEFAULT 300,
+      map_id      TEXT DEFAULT 'school_yard',
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS inventories (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_id   TEXT NOT NULL,
+      item_id     TEXT NOT NULL,
+      item_name   TEXT NOT NULL,
+      item_type   TEXT NOT NULL,
+      quantity    INTEGER DEFAULT 1,
+      equipped    INTEGER DEFAULT 0,
+      stat_bonus  TEXT DEFAULT '{}',
+      FOREIGN KEY (player_id) REFERENCES players(id)
+    );
+  `);
+  console.log('[DB] ✅ Database initialized');
+}
+
+// ── Player CRUD ────────────────────────────────────────────────────
+const playerOps = {
+  create: db.prepare(`
+    INSERT INTO players (id, username, password, class, max_hp, hp, max_sp, sp)
+    VALUES (@id, @username, @password, @class, @max_hp, @hp, @max_sp, @sp)
+  `),
+
+  findByUsername: db.prepare(`
+    SELECT * FROM players WHERE username = ?
+  `),
+
+  findById: db.prepare(`
+    SELECT * FROM players WHERE id = ?
+  `),
+
+  updatePosition: db.prepare(`
+    UPDATE players SET pos_x = @x, pos_y = @y, map_id = @map_id WHERE id = @id
+  `),
+
+  updateStats: db.prepare(`
+    UPDATE players SET
+      level = @level, exp = @exp, exp_next = @exp_next,
+      hp = @hp, max_hp = @max_hp, sp = @sp, max_sp = @max_sp,
+      str = @str, agi = @agi, vit = @vit,
+      int_stat = @int_stat, dex = @dex, luk = @luk,
+      stat_points = @stat_points, zeny = @zeny
+    WHERE id = @id
+  `),
+
+  updateHP: db.prepare(`
+    UPDATE players SET hp = @hp WHERE id = @id
+  `)
+};
+
+// ── Inventory ──────────────────────────────────────────────────────
+const inventoryOps = {
+  addItem: db.prepare(`
+    INSERT INTO inventories (player_id, item_id, item_name, item_type, quantity, stat_bonus)
+    VALUES (@player_id, @item_id, @item_name, @item_type, @quantity, @stat_bonus)
+  `),
+
+  getInventory: db.prepare(`
+    SELECT * FROM inventories WHERE player_id = ?
+  `),
+
+  getEquipped: db.prepare(`
+    SELECT * FROM inventories WHERE player_id = ? AND equipped = 1
+  `),
+
+  toggleEquip: db.prepare(`
+    UPDATE inventories SET equipped = @equipped WHERE id = @id AND player_id = @player_id
+  `),
+
+  removeItem: db.prepare(`
+    DELETE FROM inventories WHERE id = @id AND player_id = @player_id
+  `)
+};
+
+module.exports = { db, initDB, playerOps, inventoryOps };
 
